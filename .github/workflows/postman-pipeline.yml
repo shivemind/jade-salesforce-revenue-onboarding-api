@@ -65,11 +65,21 @@ jobs:
       - name: Resolve prod environment UID
         id: resolve_env
         shell: bash
+        env:
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
         run: |
           raw='${{ steps.repo_sync.outputs.environment-uids-json }}'
           prod_id=""
           if [[ -n "${raw}" && "${raw}" != "null" && "${raw}" != "{}" ]]; then
             prod_id=$(echo "${raw}" | jq -r '.prod // empty')
+          fi
+          if [[ -z "${prod_id}" ]]; then
+            echo "Repo-sync output empty, looking up via API..."
+            envs=$(curl -s "https://api.getpostman.com/environments" \
+              -H "x-api-key: ${POSTMAN_API_KEY}")
+            prod_id=$(echo "${envs}" | jq -r --arg svc "salesforce-revenue-onboarding-api" \
+              '.environments[] | select(.name == ($svc + " - prod")) | .uid // empty')
+            echo "API lookup result: ${prod_id}"
           fi
           echo "prod_env_id=${prod_id:-}" >> "$GITHUB_OUTPUT"
 
