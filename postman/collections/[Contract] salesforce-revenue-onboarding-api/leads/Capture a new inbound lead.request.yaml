@@ -13,7 +13,7 @@ body:
     {
       "firstName": "string",
       "lastName": "string",
-      "email": "JFile3IAV@kix.ymqy",
+      "email": "ESqnpa60Z7DyGi@xtlTcKyRZYuiAxycbTTdaoiekbWjOgDWz.mi",
       "company": "string",
       "source": "webinar",
       "interestArea": "revenue-operations"
@@ -87,9 +87,9 @@ examples:
         type: json
         content: |-
           {
-            "leadId": "d8200f34-3d22-f381-608f-4149e40b21e8",
-            "status": "working",
-            "score": 2927,
+            "leadId": "73665fa9-2b23-814d-0969-75e714981899",
+            "status": "disqualified",
+            "score": 5698,
             "owner": "string"
           }
       headers:

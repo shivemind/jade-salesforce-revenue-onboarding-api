@@ -3,7 +3,7 @@ type: collection
 name: '[Smoke] salesforce-revenue-onboarding-api'
 description: |
   Sample API for a Salesforce-centric lead-to-cash and customer onboarding workflow. Intended for demoing team collaboration and reuse in Postman.
-id: c713a49e-bc79-44e0-88cb-db19581acb0d
+id: 33e6179b-74c2-4102-802e-b4b821d476e7
 variables:
   - key: baseUrl
     value: https://stage-api.example.com/revenue-onboarding
