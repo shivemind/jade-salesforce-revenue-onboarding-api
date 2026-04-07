@@ -19,6 +19,12 @@ permissions:
 jobs:
   onboard:
     runs-on: ubuntu-latest
+    env:
+      PROJECT_NAME: salesforce-revenue-onboarding-api
+      SPEC_FILE: salesforce-revenue-onboarding-api.yaml
+      DOMAIN: revenue-operations
+      DOMAIN_CODE: RO
+      DISPLAY_NAME: Salesforce Revenue Onboarding API
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,64 +39,140 @@ jobs:
           npm install -g postman-cli
           postman login --with-api-key ${{ secrets.POSTMAN_API_KEY }}
 
+      # ── Idempotent preflight: resolve existing resources ──
+      - name: Preflight — check for existing workspace & resources
+        id: preflight
+        shell: bash
+        env:
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          WS_ID=$(curl -s "https://api.getpostman.com/workspaces" \
+            -H "x-api-key: $POSTMAN_API_KEY" | \
+            jq -r --arg svc "$PROJECT_NAME" \
+            '[.workspaces[] | select(.name | test($svc))] | first | .id // empty')
+
+          if [[ -z "$WS_ID" ]]; then
+            echo "No existing workspace found for $PROJECT_NAME"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Found existing workspace: $WS_ID"
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+          echo "workspace-id=$WS_ID" >> "$GITHUB_OUTPUT"
+
+          DETAIL=$(curl -s "https://api.getpostman.com/workspaces/$WS_ID" \
+            -H "x-api-key: $POSTMAN_API_KEY")
+
+          for prefix in Baseline Smoke Contract; do
+            key=$(echo "$prefix" | tr '[:upper:]' '[:lower:]')
+            uid=$(echo "$DETAIL" | jq -r --arg p "[$prefix]" --arg svc "$PROJECT_NAME" \
+              '[.workspace.collections[] | select(.name == ($p + " " + $svc))] | first | .uid // empty')
+            echo "${key}-collection-id=${uid}" >> "$GITHUB_OUTPUT"
+          done
+
+          ENVS=$(curl -s "https://api.getpostman.com/environments" \
+            -H "x-api-key: $POSTMAN_API_KEY")
+          prod_uid=$(echo "$ENVS" | jq -r --arg svc "$PROJECT_NAME" \
+            '[.environments[] | select(.name == ($svc + " - prod"))] | first | .uid // empty')
+          echo "prod-env-id=${prod_uid}" >> "$GITHUB_OUTPUT"
+          echo "Preflight complete — workspace=$WS_ID prod_env=$prod_uid"
+
+      # ── Bootstrap: only runs on first-ever pipeline execution ──
       - name: Bootstrap workspace, spec, and collections
         id: bootstrap
+        if: steps.preflight.outputs.exists != 'true'
         uses: postman-cs/postman-bootstrap-action@v0
         with:
-          project-name: salesforce-revenue-onboarding-api
-          spec-url: https://raw.githubusercontent.com/shivemind/jade-salesforce-revenue-onboarding-api/main/openapi/salesforce-revenue-onboarding-api.yaml
+          project-name: ${{ env.PROJECT_NAME }}
+          spec-url: https://raw.githubusercontent.com/shivemind/jade-${{ env.PROJECT_NAME }}/main/openapi/${{ env.SPEC_FILE }}
           postman-api-key: ${{ secrets.POSTMAN_API_KEY }}
           postman-access-token: ${{ secrets.POSTMAN_ACCESS_TOKEN }}
-          domain: revenue-operations
-          domain-code: RO
+          domain: ${{ env.DOMAIN }}
+          domain-code: ${{ env.DOMAIN_CODE }}
 
+      # ── Merge outputs: prefer existing, fall back to bootstrap ──
+      - name: Resolve canonical resource IDs
+        id: resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ steps.preflight.outputs.exists }}" == "true" ]]; then
+            echo "Using existing resource IDs from preflight"
+            echo "workspace-id=${{ steps.preflight.outputs.workspace-id }}"           >> "$GITHUB_OUTPUT"
+            echo "baseline-collection-id=${{ steps.preflight.outputs.baseline-collection-id }}" >> "$GITHUB_OUTPUT"
+            echo "smoke-collection-id=${{ steps.preflight.outputs.smoke-collection-id }}"       >> "$GITHUB_OUTPUT"
+            echo "contract-collection-id=${{ steps.preflight.outputs.contract-collection-id }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Using newly created IDs from bootstrap"
+            echo "workspace-id=${{ steps.bootstrap.outputs.workspace-id }}"                     >> "$GITHUB_OUTPUT"
+            echo "baseline-collection-id=${{ steps.bootstrap.outputs.baseline-collection-id }}" >> "$GITHUB_OUTPUT"
+            echo "smoke-collection-id=${{ steps.bootstrap.outputs.smoke-collection-id }}"       >> "$GITHUB_OUTPUT"
+            echo "contract-collection-id=${{ steps.bootstrap.outputs.contract-collection-id }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Repo sync: uses canonical IDs, safe to re-run ──
       - name: Repo sync — environments, system envs, workspace link
         id: repo_sync
         continue-on-error: true
         uses: postman-cs/postman-repo-sync-action@v0
         with:
-          project-name: salesforce-revenue-onboarding-api
-          workspace-id: ${{ steps.bootstrap.outputs.workspace-id }}
-          spec-id: ${{ steps.bootstrap.outputs.spec-id }}
-          baseline-collection-id: ${{ steps.bootstrap.outputs.baseline-collection-id }}
-          smoke-collection-id: ${{ steps.bootstrap.outputs.smoke-collection-id }}
-          contract-collection-id: ${{ steps.bootstrap.outputs.contract-collection-id }}
-          spec-path: openapi/salesforce-revenue-onboarding-api.yaml
+          project-name: ${{ env.PROJECT_NAME }}
+          workspace-id: ${{ steps.resources.outputs.workspace-id }}
+          spec-id: ${{ steps.bootstrap.outputs.spec-id || '' }}
+          baseline-collection-id: ${{ steps.resources.outputs.baseline-collection-id }}
+          smoke-collection-id: ${{ steps.resources.outputs.smoke-collection-id }}
+          contract-collection-id: ${{ steps.resources.outputs.contract-collection-id }}
+          spec-path: openapi/${{ env.SPEC_FILE }}
           environments-json: '["prod","stage"]'
           generate-ci-workflow: false
           postman-api-key: ${{ secrets.POSTMAN_API_KEY }}
           postman-access-token: ${{ secrets.POSTMAN_ACCESS_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── Resolve prod environment: API fallback for robustness ──
       - name: Resolve prod environment UID
         id: resolve_env
         shell: bash
         env:
           POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
         run: |
-          raw='${{ steps.repo_sync.outputs.environment-uids-json }}'
-          prod_id=""
-          if [[ -n "${raw}" && "${raw}" != "null" && "${raw}" != "{}" ]]; then
-            prod_id=$(echo "${raw}" | jq -r '.prod // empty')
-          fi
-          if [[ -z "${prod_id}" ]]; then
-            echo "Repo-sync output empty, looking up via API..."
-            envs=$(curl -s "https://api.getpostman.com/environments" \
-              -H "x-api-key: ${POSTMAN_API_KEY}")
-            prod_id=$(echo "${envs}" | jq -r --arg svc "salesforce-revenue-onboarding-api" \
-              '.environments[] | select(.name == ($svc + " - prod")) | .uid // empty')
-            echo "API lookup result: ${prod_id}"
-          fi
-          echo "prod_env_id=${prod_id:-}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
 
+          # Priority 1: preflight already resolved it
+          prod_id="${{ steps.preflight.outputs.prod-env-id }}"
+
+          # Priority 2: repo-sync output
+          if [[ -z "$prod_id" ]]; then
+            raw='${{ steps.repo_sync.outputs.environment-uids-json }}'
+            if [[ -n "${raw}" && "${raw}" != "null" && "${raw}" != "{}" ]]; then
+              prod_id=$(echo "${raw}" | jq -r '.prod // empty')
+            fi
+          fi
+
+          # Priority 3: direct API lookup
+          if [[ -z "$prod_id" ]]; then
+            echo "Falling back to API lookup..."
+            prod_id=$(curl -s "https://api.getpostman.com/environments" \
+              -H "x-api-key: $POSTMAN_API_KEY" | \
+              jq -r --arg svc "$PROJECT_NAME" \
+              '[.environments[] | select(.name == ($svc + " - prod"))] | first | .uid // empty')
+          fi
+
+          echo "prod_env_id=${prod_id:-}" >> "$GITHUB_OUTPUT"
+          echo "Resolved prod env: ${prod_id:-NONE}"
+
+      # ── Insights onboarding ──
       - name: Insights onboarding
         id: insights
         if: steps.resolve_env.outputs.prod_env_id != ''
         continue-on-error: true
         uses: postman-cs/postman-insights-onboarding-action@v0
         env:
-          INPUT_PROJECT_NAME: salesforce-revenue-onboarding-api
-          INPUT_WORKSPACE_ID: ${{ steps.bootstrap.outputs.workspace-id }}
+          INPUT_PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          INPUT_WORKSPACE_ID: ${{ steps.resources.outputs.workspace-id }}
           INPUT_ENVIRONMENT_ID: ${{ steps.resolve_env.outputs.prod_env_id }}
           INPUT_CLUSTER_NAME: jade-global-cluster
           INPUT_POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
@@ -99,8 +181,8 @@ jobs:
           INPUT_POLL_TIMEOUT_SECONDS: "180"
           INPUT_POLL_INTERVAL_SECONDS: "15"
         with:
-          project-name: salesforce-revenue-onboarding-api
-          workspace-id: ${{ steps.bootstrap.outputs.workspace-id }}
+          project-name: ${{ env.PROJECT_NAME }}
+          workspace-id: ${{ steps.resources.outputs.workspace-id }}
           environment-id: ${{ steps.resolve_env.outputs.prod_env_id }}
           cluster-name: jade-global-cluster
           postman-api-key: ${{ secrets.POSTMAN_API_KEY }}
@@ -114,14 +196,16 @@ jobs:
         shell: bash
         run: |
           {
-            echo "### Salesforce Revenue Onboarding API"
+            echo "### ${{ env.DISPLAY_NAME }}"
             echo ""
-            echo "- Workspace: \`${{ steps.bootstrap.outputs.workspace-id }}\`"
-            echo "- Spec: \`${{ steps.bootstrap.outputs.spec-id }}\`"
-            echo "- Baseline: \`${{ steps.bootstrap.outputs.baseline-collection-id }}\`"
-            echo "- Smoke: \`${{ steps.bootstrap.outputs.smoke-collection-id }}\`"
-            echo "- Contract: \`${{ steps.bootstrap.outputs.contract-collection-id }}\`"
-            echo "- Env UIDs: \`${{ steps.repo_sync.outputs.environment-uids-json }}\`"
-            echo "- Repo sync: \`${{ steps.repo_sync.outcome }}\`"
-            echo "- Insights: \`${{ steps.insights.outcome || 'skipped' }}\`"
+            echo "| Resource | Value |"
+            echo "|----------|-------|"
+            echo "| Workspace | \`${{ steps.resources.outputs.workspace-id }}\` |"
+            echo "| Baseline | \`${{ steps.resources.outputs.baseline-collection-id }}\` |"
+            echo "| Smoke | \`${{ steps.resources.outputs.smoke-collection-id }}\` |"
+            echo "| Contract | \`${{ steps.resources.outputs.contract-collection-id }}\` |"
+            echo "| Prod Env | \`${{ steps.resolve_env.outputs.prod_env_id }}\` |"
+            echo "| Bootstrap | ${{ steps.preflight.outputs.exists == 'true' && 'skipped (existing)' || 'created new' }} |"
+            echo "| Repo Sync | \`${{ steps.repo_sync.outcome }}\` |"
+            echo "| Insights | \`${{ steps.insights.outcome || 'skipped' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
