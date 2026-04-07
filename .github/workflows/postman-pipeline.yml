@@ -78,6 +78,16 @@ jobs:
         if: steps.resolve_env.outputs.prod_env_id != ''
         continue-on-error: true
         uses: postman-cs/postman-insights-onboarding-action@v0
+        env:
+          INPUT_PROJECT_NAME: salesforce-revenue-onboarding-api
+          INPUT_WORKSPACE_ID: ${{ steps.bootstrap.outputs.workspace-id }}
+          INPUT_ENVIRONMENT_ID: ${{ steps.resolve_env.outputs.prod_env_id }}
+          INPUT_CLUSTER_NAME: jade-global-cluster
+          INPUT_POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+          INPUT_POSTMAN_ACCESS_TOKEN: ${{ secrets.POSTMAN_ACCESS_TOKEN }}
+          INPUT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_POLL_TIMEOUT_SECONDS: "180"
+          INPUT_POLL_INTERVAL_SECONDS: "15"
         with:
           project-name: salesforce-revenue-onboarding-api
           workspace-id: ${{ steps.bootstrap.outputs.workspace-id }}
