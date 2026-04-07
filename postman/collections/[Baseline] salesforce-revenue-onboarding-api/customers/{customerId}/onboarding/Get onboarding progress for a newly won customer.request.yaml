@@ -17,10 +17,10 @@ examples:
         content: |-
           {
             "customerId": "string",
-            "provisioningStatus": "in_progress",
-            "financeSetupStatus": "blocked",
+            "provisioningStatus": "blocked",
+            "financeSetupStatus": "not_started",
             "integrationStatus": "completed",
-            "kickoffDate": "1962-11-23"
+            "kickoffDate": "1971-11-29"
           }
       headers:
         - key: Content-Type

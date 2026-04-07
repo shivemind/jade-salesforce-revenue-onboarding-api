@@ -35,10 +35,10 @@ examples:
         content: |-
           {
             "customerId": "string",
-            "provisioningStatus": "not_started",
-            "financeSetupStatus": "in_progress",
-            "integrationStatus": "not_started",
-            "kickoffDate": "1948-01-17"
+            "provisioningStatus": "in_progress",
+            "financeSetupStatus": "not_started",
+            "integrationStatus": "in_progress",
+            "kickoffDate": "2014-09-12"
           }
       headers:
         - key: Content-Type

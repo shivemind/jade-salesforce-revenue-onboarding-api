@@ -11,12 +11,12 @@ body:
   type: json
   content: |-
     {
-      "leadId": "feb1da4b-d023-7756-4adf-9768515dc9a7",
+      "leadId": "55be48cf-5276-944f-022e-5d89d1f083a0",
       "accountName": "string",
-      "amount": 5063.255494401624,
-      "expectedCloseDate": "2021-03-31",
+      "amount": 1365.5998402044722,
+      "expectedCloseDate": "1955-01-31",
       "productFamily": "string",
-      "billingModel": "project"
+      "billingModel": "subscription"
     }
 scripts:
   - type: afterResponse
@@ -87,11 +87,11 @@ examples:
         type: json
         content: |-
           {
-            "opportunityId": "2d65a8b8-35af-401e-aa89-955c3bbe2981",
+            "opportunityId": "d829e227-e9c3-bf1f-f72d-63f84812416e",
             "accountName": "string",
             "stage": "legal_review",
-            "amount": 1686.3045211469596,
-            "expectedCloseDate": "1970-11-25"
+            "amount": 3543.531859030102,
+            "expectedCloseDate": "2014-10-01"
           }
       headers:
         - key: Content-Type
