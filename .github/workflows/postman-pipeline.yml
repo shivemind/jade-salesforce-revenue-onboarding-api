@@ -1,0 +1,107 @@
+name: postman-pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "openapi/**"
+      - ".github/workflows/postman-pipeline.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: postman-pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  onboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install and authenticate Postman CLI
+        run: |
+          npm install -g postman-cli
+          postman login --with-api-key ${{ secrets.POSTMAN_API_KEY }}
+
+      - name: Bootstrap workspace, spec, and collections
+        id: bootstrap
+        uses: postman-cs/postman-bootstrap-action@v0
+        with:
+          project-name: salesforce-revenue-onboarding-api
+          spec-url: https://raw.githubusercontent.com/shivemind/jade-salesforce-revenue-onboarding-api/main/openapi/salesforce-revenue-onboarding-api.yaml
+          postman-api-key: ${{ secrets.POSTMAN_API_KEY }}
+          postman-access-token: ${{ secrets.POSTMAN_ACCESS_TOKEN }}
+          domain: revenue-operations
+          domain-code: RO
+
+      - name: Repo sync — environments, system envs, workspace link
+        id: repo_sync
+        continue-on-error: true
+        uses: postman-cs/postman-repo-sync-action@v0
+        with:
+          project-name: salesforce-revenue-onboarding-api
+          workspace-id: ${{ steps.bootstrap.outputs.workspace-id }}
+          spec-id: ${{ steps.bootstrap.outputs.spec-id }}
+          baseline-collection-id: ${{ steps.bootstrap.outputs.baseline-collection-id }}
+          smoke-collection-id: ${{ steps.bootstrap.outputs.smoke-collection-id }}
+          contract-collection-id: ${{ steps.bootstrap.outputs.contract-collection-id }}
+          spec-path: openapi/salesforce-revenue-onboarding-api.yaml
+          environments-json: '["prod","stage"]'
+          generate-ci-workflow: false
+          postman-api-key: ${{ secrets.POSTMAN_API_KEY }}
+          postman-access-token: ${{ secrets.POSTMAN_ACCESS_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve prod environment UID
+        id: resolve_env
+        shell: bash
+        run: |
+          raw='${{ steps.repo_sync.outputs.environment-uids-json }}'
+          prod_id=""
+          if [[ -n "${raw}" && "${raw}" != "null" && "${raw}" != "{}" ]]; then
+            prod_id=$(echo "${raw}" | jq -r '.prod // empty')
+          fi
+          echo "prod_env_id=${prod_id:-}" >> "$GITHUB_OUTPUT"
+
+      - name: Insights onboarding
+        id: insights
+        if: steps.resolve_env.outputs.prod_env_id != ''
+        continue-on-error: true
+        uses: postman-cs/postman-insights-onboarding-action@v0
+        with:
+          project-name: salesforce-revenue-onboarding-api
+          workspace-id: ${{ steps.bootstrap.outputs.workspace-id }}
+          environment-id: ${{ steps.resolve_env.outputs.prod_env_id }}
+          cluster-name: jade-global-cluster
+          postman-api-key: ${{ secrets.POSTMAN_API_KEY }}
+          postman-access-token: ${{ secrets.POSTMAN_ACCESS_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          poll-timeout-seconds: "180"
+          poll-interval-seconds: "15"
+
+      - name: Write job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Salesforce Revenue Onboarding API"
+            echo ""
+            echo "- Workspace: \`${{ steps.bootstrap.outputs.workspace-id }}\`"
+            echo "- Spec: \`${{ steps.bootstrap.outputs.spec-id }}\`"
+            echo "- Baseline: \`${{ steps.bootstrap.outputs.baseline-collection-id }}\`"
+            echo "- Smoke: \`${{ steps.bootstrap.outputs.smoke-collection-id }}\`"
+            echo "- Contract: \`${{ steps.bootstrap.outputs.contract-collection-id }}\`"
+            echo "- Env UIDs: \`${{ steps.repo_sync.outputs.environment-uids-json }}\`"
+            echo "- Repo sync: \`${{ steps.repo_sync.outcome }}\`"
+            echo "- Insights: \`${{ steps.insights.outcome || 'skipped' }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
