@@ -73,12 +73,16 @@ jobs:
             echo "${key}-collection-id=${uid}" >> "$GITHUB_OUTPUT"
           done
 
+          spec_id=$(echo "$DETAIL" | jq -r --arg svc "$PROJECT_NAME" \
+            '[.workspace.specs[] | select(.name == $svc)] | first | .id // empty')
+          echo "spec-id=${spec_id}" >> "$GITHUB_OUTPUT"
+
           ENVS=$(curl -s "https://api.getpostman.com/environments" \
             -H "x-api-key: $POSTMAN_API_KEY")
           prod_uid=$(echo "$ENVS" | jq -r --arg svc "$PROJECT_NAME" \
             '[.environments[] | select(.name == ($svc + " - prod"))] | first | .uid // empty')
           echo "prod-env-id=${prod_uid}" >> "$GITHUB_OUTPUT"
-          echo "Preflight complete — workspace=$WS_ID prod_env=$prod_uid"
+          echo "Preflight complete — workspace=$WS_ID spec=$spec_id prod_env=$prod_uid"
 
       # ── Bootstrap: only runs on first-ever pipeline execution ──
       - name: Bootstrap workspace, spec, and collections
@@ -121,7 +125,7 @@ jobs:
         with:
           project-name: ${{ env.PROJECT_NAME }}
           workspace-id: ${{ steps.resources.outputs.workspace-id }}
-          spec-id: ${{ steps.bootstrap.outputs.spec-id || '' }}
+          spec-id: ${{ steps.preflight.outputs.spec-id || steps.bootstrap.outputs.spec-id || '' }}
           baseline-collection-id: ${{ steps.resources.outputs.baseline-collection-id }}
           smoke-collection-id: ${{ steps.resources.outputs.smoke-collection-id }}
           contract-collection-id: ${{ steps.resources.outputs.contract-collection-id }}
