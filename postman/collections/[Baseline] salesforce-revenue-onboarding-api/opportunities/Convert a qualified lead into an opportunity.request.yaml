@@ -1,0 +1,38 @@
+type: http
+name: Convert a qualified lead into an opportunity
+url: '{{baseUrl}}/opportunities'
+method: POST
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "leadId": "9364bb62-bada-e153-526d-82bc4c970adc",
+      "accountName": "string",
+      "amount": 4155.455764805898,
+      "expectedCloseDate": "1961-05-31",
+      "productFamily": "string",
+      "billingModel": "hybrid"
+    }
+examples:
+  - response:
+      statusCode: 201
+      statusText: Created
+      body:
+        type: json
+        content: |-
+          {
+            "opportunityId": "b16cab26-4a03-83b6-b5fc-e95ab9e32a53",
+            "accountName": "string",
+            "stage": "proposal",
+            "amount": 1209.72173229545,
+            "expectedCloseDate": "1970-11-07"
+          }
+      headers:
+        - key: Content-Type
+          value: application/json
+    name: Opportunity created

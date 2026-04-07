@@ -1,0 +1,56 @@
+type: http
+name: Convert a qualified lead into an opportunity
+url: '{{baseUrl}}/opportunities'
+method: POST
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "leadId": "36180b0b-a31f-e58e-923e-25315b558c8f",
+      "accountName": "string",
+      "amount": 900.6117088340337,
+      "expectedCloseDate": "1967-10-17",
+      "productFamily": "string",
+      "billingModel": "hybrid"
+    }
+scripts:
+  - type: afterResponse
+    code:
+      - // [Smoke] Auto-generated test assertions
+      - pm.test('Status code is successful (2xx)', function () {
+      - '    pm.response.to.be.success;'
+      - '});'
+      - pm.test('Response time is acceptable', function () {
+      - '    var threshold = parseInt(pm.environment.get(''RESPONSE_TIME_THRESHOLD'') || ''2000'', 10);'
+      - '    pm.expect(pm.response.responseTime).to.be.below(threshold);'
+      - '});'
+      - pm.test('Response body is not empty', function () {
+      - '    if (pm.response.code !== 204) {'
+      - '        var body = pm.response.text();'
+      - '        pm.expect(body.length).to.be.above(0);'
+      - '    }'
+      - '});'
+    language: text/javascript
+examples:
+  - response:
+      statusCode: 201
+      statusText: Created
+      body:
+        type: json
+        content: |-
+          {
+            "opportunityId": "423ec0fa-6ddd-0d36-a260-f9d32e76cbc7",
+            "accountName": "string",
+            "stage": "legal_review",
+            "amount": 3264.33400207369,
+            "expectedCloseDate": "1973-02-19"
+          }
+      headers:
+        - key: Content-Type
+          value: application/json
+    name: Opportunity created

@@ -1,0 +1,20 @@
+workspace:
+  id: 475b8485-172b-4370-84b7-9ae33f2048b1
+localResources:
+  collections:
+    - ../postman/collections/[Baseline] salesforce-revenue-onboarding-api
+    - ../postman/collections/[Smoke] salesforce-revenue-onboarding-api
+    - ../postman/collections/[Contract] salesforce-revenue-onboarding-api
+  environments:
+    - ../postman/environments/prod.postman_environment.json
+    - ../postman/environments/stage.postman_environment.json
+  specs:
+    - ../openapi/salesforce-revenue-onboarding-api.yaml
+cloudResources:
+  collections:
+    ../postman/collections/[Baseline] salesforce-revenue-onboarding-api: 52400725-773f4fe4-b85b-45bb-aebe-238330def604
+    ../postman/collections/[Smoke] salesforce-revenue-onboarding-api: 52400725-36b458ef-bc9f-456f-933d-2e3fb7fb81c4
+    ../postman/collections/[Contract] salesforce-revenue-onboarding-api: 52400725-9973d5e6-a5ba-4579-b9f6-8edb2fda6ca4
+  environments:
+    ../postman/environments/prod.postman_environment.json: 52400725-6beee7d3-58d0-4897-88da-f951939254d5
+    ../postman/environments/stage.postman_environment.json: 52400725-92a6580a-4194-430d-92c9-308cd484e22e
