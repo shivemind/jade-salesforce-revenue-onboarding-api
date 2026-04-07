@@ -18,9 +18,9 @@ examples:
           {
             "customerId": "string",
             "provisioningStatus": "blocked",
-            "financeSetupStatus": "completed",
-            "integrationStatus": "not_started",
-            "kickoffDate": "2016-09-27"
+            "financeSetupStatus": "not_started",
+            "integrationStatus": "completed",
+            "kickoffDate": "1971-11-29"
           }
       headers:
         - key: Content-Type

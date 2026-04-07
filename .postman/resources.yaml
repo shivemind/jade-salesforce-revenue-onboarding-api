@@ -12,9 +12,9 @@ localResources:
     - ../openapi/salesforce-revenue-onboarding-api.yaml
 cloudResources:
   collections:
-    ../postman/collections/[Baseline] salesforce-revenue-onboarding-api: 52400725-f1744ff7-e735-4724-acf0-d35e578fc109
+    ../postman/collections/[Baseline] salesforce-revenue-onboarding-api: 52400725-0fbf2e0f-53c1-44b2-a6f3-bb422c957f80
     ../postman/collections/[Smoke] salesforce-revenue-onboarding-api: 52400725-33e6179b-74c2-4102-802e-b4b821d476e7
-    ../postman/collections/[Contract] salesforce-revenue-onboarding-api: 52400725-87f932c3-c15d-414e-b2e0-f8fa9826e4d4
+    ../postman/collections/[Contract] salesforce-revenue-onboarding-api: 52400725-9973d5e6-a5ba-4579-b9f6-8edb2fda6ca4
   environments:
     ../postman/environments/prod.postman_environment.json: 52400725-6beee7d3-58d0-4897-88da-f951939254d5
     ../postman/environments/stage.postman_environment.json: 52400725-92a6580a-4194-430d-92c9-308cd484e22e

@@ -3,7 +3,7 @@ type: collection
 name: '[Baseline] salesforce-revenue-onboarding-api'
 description: |
   Sample API for a Salesforce-centric lead-to-cash and customer onboarding workflow. Intended for demoing team collaboration and reuse in Postman.
-id: f1744ff7-e735-4724-acf0-d35e578fc109
+id: 0fbf2e0f-53c1-44b2-a6f3-bb422c957f80
 variables:
   - key: baseUrl
     value: https://stage-api.example.com/revenue-onboarding
